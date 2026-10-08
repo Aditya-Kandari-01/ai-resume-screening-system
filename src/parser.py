@@ -38,7 +38,7 @@ def extract_email(text):
 
 
 def extract_github(text):
-    """Find a GitHub user profile URL."""
+    """Extract a GitHub profile URL from resume text."""
     for match in GITHUB_PATTERN.finditer(text):
         username = match.group(1)
 
@@ -48,15 +48,30 @@ def extract_github(text):
     return None
 
 
+
 def extract_name(text):
-    """Use the first plausible heading as a name."""
+    """Extract a likely candidate name from resume headings."""
     lines = [
         line.strip()
         for line in text.splitlines()
         if line.strip()
     ]
 
-    for line in lines[:8]:
+    excluded = {
+        "skills", "skills summary", "summary",
+        "professional summary", "profile",
+        "education", "experience", "work experience",
+        "projects", "technical skills",
+        "certifications", "achievements",
+        "contact", "objective", "resume"
+    }
+
+    for line in lines[:15]:
+        normalized = line.lower().strip(": ")
+
+        if normalized in excluded:
+            continue
+
         if (
             2 <= len(line.split()) <= 4
             and len(line) <= 60
@@ -68,6 +83,7 @@ def extract_name(text):
             return line.title()
 
     return None
+
 
 
 def parse_resume(pdf_path):
@@ -82,10 +98,11 @@ def parse_resume(pdf_path):
 
         if not text:
             raise ValueError("No extractable text found")
-
+        name = extract_name(text)
         return {
             "filename": pdf_path.name,
-            "candidate_name": extract_name(text),
+            "candidate_name": name or pdf_path.stem,
+            "name_extraction_status": "failed",
             "email": extract_email(text),
             "github_url": extract_github(text),
             "text": text,

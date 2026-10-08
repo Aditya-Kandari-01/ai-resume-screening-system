@@ -1,46 +1,56 @@
+
 from src.parser import parse_directory
 from src.eligibility import check_eligibility
+from src.scorer import score_candidate
 
 
 def main():
     candidates = parse_directory("resumes")
 
-    eligible_candidates = []
+    ranked_candidates = []
     rejected_candidates = []
     failed_candidates = []
 
     for candidate in candidates:
-
         if candidate["status"] != "success":
             failed_candidates.append(candidate)
             continue
 
-        result = check_eligibility(candidate)
+        eligibility = check_eligibility(candidate)
 
-        if result["eligible"]:
-            eligible_candidates.append(result)
-        else:
-            rejected_candidates.append(result)
+        if not eligibility["eligible"]:
+            rejected_candidates.append(eligibility)
+            continue
+
+        score = score_candidate(candidate, eligibility)
+        ranked_candidates.append(score)
+
+    ranked_candidates.sort(
+        key=lambda candidate: candidate["total_score"],
+        reverse=True
+    )
+
+    for rank, candidate in enumerate(
+        ranked_candidates, start=1
+    ):
+        candidate["rank"] = rank
 
     print("\n===== SCREENING SUMMARY =====")
     print("Total:", len(candidates))
-    print("Eligible:", len(eligible_candidates))
+    print("Eligible:", len(ranked_candidates))
     print("Rejected:", len(rejected_candidates))
     print("Failed:", len(failed_candidates))
 
-    print("\n===== FIRST 5 ELIGIBLE =====")
+    print("\n===== TOP 5 RANKED CANDIDATES =====")
 
-    for candidate in eligible_candidates[:5]:
+    for candidate in ranked_candidates[:5]:
+        print("\nRank:", candidate["rank"])
         print("Name:", candidate["candidate_name"])
-        print("Skills:", candidate["matched_skills"])
-        print("AI evidence:", candidate["evidence"]["ai"])
-        print("-" * 50)
-
-    print("\n===== FIRST 5 REJECTED =====")
-
-    for candidate in rejected_candidates[:5]:
-        print("Name:", candidate["candidate_name"])
-        print("Reasons:", candidate["rejection_reasons"])
+        print("Total Score:", candidate["total_score"])
+        print("Breakdown:", candidate["score_breakdown"])
+        print("Penalty:", candidate["penalty"])
+        print("Strengths:", candidate["strengths"])
+        print("Concerns:", candidate["concerns"])
         print("-" * 50)
 
 
