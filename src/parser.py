@@ -49,8 +49,9 @@ def extract_github(text):
 
 
 
+
 def extract_name(text):
-    """Extract a likely candidate name from resume headings."""
+    """Extract candidate names from common resume header layouts."""
     lines = [
         line.strip()
         for line in text.splitlines()
@@ -63,24 +64,88 @@ def extract_name(text):
         "education", "experience", "work experience",
         "projects", "technical skills",
         "certifications", "achievements",
-        "contact", "objective", "resume"
+        "contact", "objective", "resume",
     }
 
-    for line in lines[:15]:
-        normalized = line.lower().strip(": ")
+    def valid_name(value):
+        normalized = value.lower().strip(": ")
 
-        if normalized in excluded:
+        return (
+            normalized not in excluded
+            and 2 <= len(value.split()) <= 4
+            and len(value) <= 60
+            and not any(char.isdigit() for char in value)
+            and re.fullmatch(r"[A-Za-z .'-]+", value)
+            is not None
+        )
+
+    header = lines[:12]
+    # Case 1: Name and email appear on the same line.
+    for line in header:
+        if "@" in line:
+            before_email = EMAIL_PATTERN.split(line)[0].strip()
+    
+            # Remove extra contact separators.
+            before_email = before_email.strip(" |-—")
+    
+            if valid_name(before_email):
+                return before_email.title()
+    
+    # Case 2 : Handle split names with contact details on each line.
+    # Example:
+    # Prathamesh      prathameshpatil330@gmail.com
+    # Patil           LinkedIn | Github
+
+    for i in range(min(6, len(header) - 1)):
+        first_line = header[i]
+        second_line = header[i + 1]
+
+        # Extract the first word from each line.
+        first_match = re.match(r"^([A-Za-z'-]+)\b", first_line)
+        second_match = re.match(r"^([A-Za-z'-]+)\b", second_line)
+
+        if not first_match or not second_match:
             continue
 
-        if (
-            2 <= len(line.split()) <= 4
-            and len(line) <= 60
-            and not any(char.isdigit() for char in line)
-            and "@" not in line
-            and "http" not in line.lower()
-            and re.fullmatch(r"[A-Za-z .'-]+", line)
+        first_name = first_match.group(1)
+        last_name = second_match.group(1)
+
+        # First line must contain an email.
+        if not EMAIL_PATTERN.search(first_line):
+            continue
+
+        # Second line should contain contact information.
+        if not re.search(
+            r"\blinkedin\b|\bgithub\b",
+            second_line,
+            re.IGNORECASE
         ):
+            continue
+
+        combined_name = f"{first_name} {last_name}"
+
+        if valid_name(combined_name):
+            return combined_name.title()
+
+
+    # Case 3: Complete name appears on a separate line.
+    for line in header:
+        if valid_name(line):
             return line.title()
+
+    # Case 4: First and last names on consecutive lines.
+    for i in range(min(5, len(header) - 1)):
+        first = header[i]
+        second = header[i + 1]
+
+        if (
+            re.fullmatch(r"[A-Za-z'-]+", first)
+            and re.fullmatch(r"[A-Za-z'-]+", second)
+        ):
+            combined = f"{first} {second}"
+
+            if valid_name(combined):
+                return combined.title()
 
     return None
 
