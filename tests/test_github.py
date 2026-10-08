@@ -1,6 +1,26 @@
-
 from datetime import datetime, timedelta, timezone
 
+def test_github_profile_not_found():
+    import requests
+
+    class NotFoundSession:
+        def get(self, *args, **kwargs):
+            response = requests.Response()
+            response.status_code = 404
+            response.url = (
+                "https://api.github.com/users/missing-user"
+            )
+            return response
+
+    service = GitHubEnricher(session=NotFoundSession())
+
+    result = service.enrich(
+        "https://github.com/missing-user"
+    )
+
+    assert result["status"] == "profile_not_found"
+    assert result["score"] == 0
+    
 from src.github_service import (
     extract_username,
     calculate_github_score,

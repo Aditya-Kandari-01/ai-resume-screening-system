@@ -212,6 +212,28 @@ class GitHubEnricher:
                 ),
             }
 
+        except requests.HTTPError as exc:
+            status_code = (
+                exc.response.status_code
+                if exc.response is not None
+                else None
+            )
+
+            result = {
+                "status": (
+                    "profile_not_found"
+                    if status_code == 404
+                    else "api_error"
+                ),
+                "username": username,
+                "score": 0,
+                "summary": (
+                    "GitHub profile not found (HTTP 404)"
+                    if status_code == 404
+                    else f"GitHub API error: {exc}"
+                ),
+            }
+
         except requests.RequestException as exc:
             result = {
                 "status": "api_error",
