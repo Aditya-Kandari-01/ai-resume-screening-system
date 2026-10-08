@@ -1,17 +1,20 @@
-
 from src.parser import parse_directory
 from src.eligibility import check_eligibility
 from src.scorer import score_candidate
+from src.github_service import GitHubEnricher
 
 
 def main():
     candidates = parse_directory("resumes")
+
+    github_service = GitHubEnricher()
 
     ranked_candidates = []
     rejected_candidates = []
     failed_candidates = []
 
     for candidate in candidates:
+
         if candidate["status"] != "success":
             failed_candidates.append(candidate)
             continue
@@ -22,12 +25,30 @@ def main():
             rejected_candidates.append(eligibility)
             continue
 
-        score = score_candidate(candidate, eligibility)
-        ranked_candidates.append(score)
+        # Enrich only eligible candidates.
+        github_data = github_service.enrich(
+            candidate.get("github_url")
+        )
+
+        result = score_candidate(
+            candidate,
+            eligibility,
+            github_score=github_data["score"]
+        )
+
+        result["github_status"] = github_data["status"]
+        result["github_summary"] = github_data["summary"]
+        result["github_url"] = candidate.get("github_url")
+        result["filename"] = candidate["filename"]
+
+        ranked_candidates.append(result)
 
     ranked_candidates.sort(
-        key=lambda candidate: candidate["total_score"],
-        reverse=True
+        key=lambda item: (
+            -item["total_score"],
+            -item["score_breakdown"]["ai_project_depth"],
+            item["filename"],
+        )
     )
 
     for rank, candidate in enumerate(
@@ -48,7 +69,8 @@ def main():
         print("Name:", candidate["candidate_name"])
         print("Total Score:", candidate["total_score"])
         print("Breakdown:", candidate["score_breakdown"])
-        print("Penalty:", candidate["penalty"])
+        print("GitHub Status:", candidate["github_status"])
+        print("GitHub:", candidate["github_summary"])
         print("Strengths:", candidate["strengths"])
         print("Concerns:", candidate["concerns"])
         print("-" * 50)
