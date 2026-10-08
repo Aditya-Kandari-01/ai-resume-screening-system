@@ -1,30 +1,47 @@
-
 from src.parser import parse_directory
+from src.eligibility import check_eligibility
 
 
 def main():
-    results = parse_directory("resumes")
+    candidates = parse_directory("resumes")
 
-    success = sum(
-        r["status"] == "success" for r in results
-    )
+    eligible_candidates = []
+    rejected_candidates = []
+    failed_candidates = []
 
-    failed = len(results) - success
+    for candidate in candidates:
 
-    print(f"Total resumes: {len(results)}")
-    print(f"Successfully parsed: {success}")
-    print(f"Failed: {failed}")
+        if candidate["status"] != "success":
+            failed_candidates.append(candidate)
+            continue
 
-    print("\nSample parsed candidates:\n")
+        result = check_eligibility(candidate)
 
-    for candidate in results[:5]:
-        print("File:", candidate["filename"])
+        if result["eligible"]:
+            eligible_candidates.append(result)
+        else:
+            rejected_candidates.append(result)
+
+    print("\n===== SCREENING SUMMARY =====")
+    print("Total:", len(candidates))
+    print("Eligible:", len(eligible_candidates))
+    print("Rejected:", len(rejected_candidates))
+    print("Failed:", len(failed_candidates))
+
+    print("\n===== FIRST 5 ELIGIBLE =====")
+
+    for candidate in eligible_candidates[:5]:
         print("Name:", candidate["candidate_name"])
-        print("Email:", candidate["email"])
-        print("GitHub:", candidate["github_url"])
-        print("Status:", candidate["status"])
-        print("Text length:", len(candidate["text"]))
-        print("-" * 40)
+        print("Skills:", candidate["matched_skills"])
+        print("AI evidence:", candidate["evidence"]["ai"])
+        print("-" * 50)
+
+    print("\n===== FIRST 5 REJECTED =====")
+
+    for candidate in rejected_candidates[:5]:
+        print("Name:", candidate["candidate_name"])
+        print("Reasons:", candidate["rejection_reasons"])
+        print("-" * 50)
 
 
 if __name__ == "__main__":
