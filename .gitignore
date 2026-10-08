@@ -1,0 +1,19 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets
+.env
+
+# Candidate data and generated output
+resumes/
+output/
+
+# Local dataset archives
+*.zip
+
+# IDE
+.vscode/
+.idea/
